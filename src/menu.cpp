@@ -1,15 +1,16 @@
 #include "menu.h"
 
-Menu::Menu(State &state, Font &font) : font{font}, state{state} {
+Menu::Menu(State &state, Font &font, Db &db)
+    : font{font}, state{state}, db{db} {
   titleWidth = MeasureText(title, titleFontSize);
   titleX = (float)WIDTH / 2.0f - (float)titleWidth / 2.0f;
   titleY = 50;
-  std::ifstream inputFile("../data/rooms.txt");
-  std::string line;
-  while (std::getline(inputFile, line)) {
-    rooms.push_back(line);
+
+  rooms = db.get_rooms();
+  std::cout << "PRINTING ROOMS\n";
+  for (std::string &str : rooms) {
+    std::cout << str << "\n";
   }
-  inputFile.close();
 
   float totalHeight =
       rooms.size() * BUTTON_HEIGHT +

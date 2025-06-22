@@ -1,5 +1,7 @@
 #pragma once
+#include <iostream>
 #include <sqlite3.h>
+#include <sstream>
 #include <string>
 #include <vector>
 struct Db {
@@ -20,6 +22,8 @@ struct Db {
   int createUser(const std::string &username, const std::string &password);
 
   bool verifyLogin(const char *username, const char *password);
+
+  std::vector<std::string> get_rooms();
   std::vector<std::string> get_logs(int lim, int roomId);
 
   sqlite3 *db = nullptr;

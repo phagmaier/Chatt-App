@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL
 );
 
--- ✅ Corrected user inserts
 INSERT INTO users (username, password) VALUES ('Parker', 'Hagmaier');
 INSERT INTO users (username, password) VALUES ('Amber', '1234');
 

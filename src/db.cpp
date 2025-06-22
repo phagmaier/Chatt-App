@@ -1,6 +1,4 @@
 #include "db.h"
-#include <iostream>
-#include <sstream>
 
 Db::Db(const std::string &path) {
   if (sqlite3_open(path.c_str(), &db) != SQLITE_OK) {
@@ -12,6 +10,31 @@ Db::Db(const std::string &path) {
 Db::~Db() {
   if (db)
     sqlite3_close(db);
+}
+
+std::vector<std::string> Db::get_rooms() {
+  sqlite3_stmt *stmt;
+  std::vector<std::string> rooms;
+
+  // Prepare the SQL statement
+  if (sqlite3_prepare_v2(db, "SELECT name FROM rooms", -1, &stmt, nullptr) !=
+      SQLITE_OK) {
+    throw std::runtime_error("Failed to prepare statement: " +
+                             std::string(sqlite3_errmsg(db)));
+  }
+
+  // Execute the statement and retrieve results
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *room =
+        reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+    if (room) {                 // Check if room is not null
+      rooms.emplace_back(room); // Use emplace_back for efficiency
+    }
+  }
+
+  // Finalize the statement to release resources
+  sqlite3_finalize(stmt);
+  return rooms;
 }
 
 bool Db::insertMessage(const std::string &room, const std::string &user,

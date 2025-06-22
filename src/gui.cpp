@@ -21,7 +21,7 @@ void Gui::run() {
     std::cout << "Custom font loaded successfully" << std::endl;
   }
   Db db = Db("../Db/chat.db");
-  Menu menu = Menu(state, font);
+  Menu menu = Menu(state, font, db);
   ChatRoom room = ChatRoom(state, font, db);
   Login login = Login(state, db);
 
