@@ -1,7 +1,6 @@
 #include "gui.h"
-#include "chatroom.h"
 
-Gui::Gui() : state{LOGIN} {}
+Gui::Gui() : state{START} {}
 
 void Gui::run() {
   InitWindow(WIDTH, HEIGHT, "Chat App");
@@ -21,15 +20,29 @@ void Gui::run() {
     std::cout << "Custom font loaded successfully" << std::endl;
   }
   Db db = Db("../Db/chat.db");
+  Start start = Start(state, font);
+  Signup signup = Signup(state, db);
+  Login login = Login(state, db);
   Menu menu = Menu(state, font, db);
   ChatRoom room = ChatRoom(state, font, db);
-  Login login = Login(state, db);
+  /*
+  GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, 0x33373BFF);   // #33373B – mid-grey
+  GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, 0xE0E0E0FF);   // near-white
+  GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL, 0x3C9CE8FF); // cyan ring
+  GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, 0x00A8E8FF);  // bright cyan fill
+  GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, 0xFFFFFFFF);  // white text
+*/
 
   while (!WindowShouldClose()) {
     BeginDrawing();
-    ClearBackground(RAYWHITE);
-    if (state == LOGIN) {
+    // ClearBackground(RAYWHITE);
+    ClearBackground({24, 26, 27, 255});
+    if (state == START) {
+      start.draw_start();
+    } else if (state == LOGIN) {
       login.draw_login();
+    } else if (state == SIGNUP) {
+      signup.draw_signup();
     } else if (state == MENU) {
       menu.draw_menu(room_name);
       if (state == ROOM) {

@@ -1,0 +1,610 @@
+#include "chatroom.h"
+#include <raylib.h>
+
+ChatRoom::ChatRoom(State &state, Font &font, Db &db)
+    : font{font}, state{state}, chatBox({50, 70, 900, 500}),
+      inputBox({50, 600, 800, 40}), sendBtn({860, 600, 90, 40}),
+      backBtn({50, 660, 100, 30}), inBuff{(char *)calloc(inMax + 1, 1)},
+      db{db} {
+
+  charWidth = MeasureTextEx(font, "a", FONTSIZE, TEXTSPACING).x;
+  textHeight = MeasureTextEx(font, "a", FONTSIZE, TEXTSPACING).y;
+  row_lim = (int)((chatBox.height - LINE_THICK) / (textHeight + LINE_SPACING));
+  col_lim = (int)((chatBox.width - LINE_THICK) / charWidth) - 1;
+}
+
+ChatRoom::~ChatRoom() {
+  if (inBuff) {
+    free(inBuff);
+  }
+}
+
+void ChatRoom::append_msg(std::string &msg) {
+  if (msg.size() <= col_lim) {
+    if (save_text(msg)) {
+      chats.push_back(msg);
+    }
+    return;
+  }
+
+  int idx = 0;
+  while (idx + col_lim < msg.size()) { // Fixed condition
+    std::string substr = msg.substr(idx, col_lim);
+    if (save_text(substr)) {
+      chats.push_back(substr);
+    } else {
+      // should probably give some error message
+      // or do something
+      return;
+    }
+    idx += col_lim;
+  }
+  if (idx < msg.size()) {
+    std::string substr = msg.substr(idx);
+    if (save_text(substr)) {
+      chats.push_back(substr);
+    }
+  }
+}
+
+void ChatRoom::resize_chats() {
+  if (chats.size() >= row_lim * 2) {
+    const unsigned int new_size = chats.size() - row_lim;
+    std::vector<std::string> new_chats;
+    new_chats.reserve(new_size);
+    for (unsigned int i = 0; i < new_size; ++i) {
+      new_chats.push_back(chats[i]);
+    }
+    chats = new_chats;
+  }
+}
+
+bool ChatRoom::save_text(std::string &msg) {
+  if (!db.insertMessage(name, usr, msg)) {
+    return false;
+  }
+  resize_chats();
+  return true;
+}
+
+void ChatRoom::load_text() { chats = db.get_logs(row_lim, room_id); }
+
+void ChatRoom::draw_message_box() {
+  DrawRectangleLinesEx(chatBox, LINE_THICK, RAYWHITE);
+  const unsigned int size = chats.size();
+  unsigned int idx = size <= row_lim ? 0 : size - row_lim;
+  Vector2 textPos = {chatBox.x + LINE_THICK, chatBox.y + LINE_THICK};
+
+  for (; idx < size; ++idx) {
+    DrawTextEx(font, chats[idx].c_str(), textPos, FONTSIZE, TEXTSPACING,
+               RAYWHITE);
+    textPos.y += textHeight + LINE_SPACING;
+  }
+}
+
+void ChatRoom::draw_room() {
+  DrawText(name.c_str(), WIDTH / 2 - titleWidth / 2, 20, titleSize, RED);
+
+  // Handle input
+  GuiTextBox(inputBox, inBuff, inMax, true);
+
+  // Check for send button or Enter key
+  bool shouldSend = GuiButton(sendBtn, "Send") ||
+                    IsKeyPressed(KEY_ENTER); // Changed to IsKeyPressed
+
+  if (shouldSend && strlen(inBuff) > 0) {
+    std::string msg = "[you]: ";
+    msg += inBuff;
+    append_msg(msg);
+    memset(inBuff, 0, inMax + 1);
+  }
+
+  draw_message_box();
+
+  if (GuiButton(backBtn, "Back")) {
+    // save_text(); // Save before going back
+    state = MENU;
+  }
+}
+
+void ChatRoom::update(std::string &new_name, const char *new_usr) {
+  usr = new_usr;
+  room_id = db.getRoomId(new_name);
+  chats.clear();
+  name = new_name;
+  load_text();
+  titleWidth = MeasureText(name.c_str(), titleSize);
+  memset(inBuff, 0, inMax + 1);
+}
+#include "db.h"
+
+Db::Db(const std::string &path) {
+  if (sqlite3_open(path.c_str(), &db) != SQLITE_OK) {
+    std::cerr << "Can't open Db: " << sqlite3_errmsg(db) << "\n";
+    db = nullptr;
+  }
+}
+
+Db::~Db() {
+  if (db)
+    sqlite3_close(db);
+}
+
+std::vector<std::string> Db::get_rooms() {
+  sqlite3_stmt *stmt;
+  std::vector<std::string> rooms;
+
+  // Prepare the SQL statement
+  if (sqlite3_prepare_v2(db, "SELECT name FROM rooms", -1, &stmt, nullptr) !=
+      SQLITE_OK) {
+    throw std::runtime_error("Failed to prepare statement: " +
+                             std::string(sqlite3_errmsg(db)));
+  }
+
+  // Execute the statement and retrieve results
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *room =
+        reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+    if (room) {                 // Check if room is not null
+      rooms.emplace_back(room); // Use emplace_back for efficiency
+    }
+  }
+
+  // Finalize the statement to release resources
+  sqlite3_finalize(stmt);
+  return rooms;
+}
+
+bool Db::insertMessage(const std::string &room, const std::string &user,
+                       const std::string &text) {
+  int roomId = getRoomId(room);
+  int userId = getUserId(user);
+
+  sqlite3_stmt *stmt;
+  sqlite3_prepare_v2(
+      db, "INSERT INTO messages (room_id, user_id, text) VALUES (?, ?, ?);", -1,
+      &stmt, nullptr);
+  sqlite3_bind_int(stmt, 1, roomId);
+  sqlite3_bind_int(stmt, 2, userId);
+  sqlite3_bind_text(stmt, 3, text.c_str(), -1, SQLITE_TRANSIENT);
+
+  bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+  sqlite3_finalize(stmt);
+  return success;
+}
+
+bool Db::insertMessage(const std::string &room, const std::string &user,
+                       const char *text) {
+  int roomId = getRoomId(room);
+  int userId = getUserId(user);
+
+  sqlite3_stmt *stmt;
+  sqlite3_prepare_v2(
+      db, "INSERT INTO messages (room_id, user_id, text) VALUES (?, ?, ?);", -1,
+      &stmt, nullptr);
+  sqlite3_bind_int(stmt, 1, roomId);
+  sqlite3_bind_int(stmt, 2, userId);
+  sqlite3_bind_text(stmt, 3, text, -1, SQLITE_TRANSIENT);
+
+  bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+  sqlite3_finalize(stmt);
+  return success;
+}
+
+std::string Db::loadMessages(const std::string &room) {
+  std::ostringstream output;
+  sqlite3_stmt *stmt;
+
+  int roomId = getRoomId(room);
+
+  sqlite3_prepare_v2(db,
+                     "SELECT users.username, messages.text, messages.ts "
+                     "FROM messages JOIN users ON users.id = messages.user_id "
+                     "WHERE messages.room_id = ? ORDER BY messages.ts ASC;",
+                     -1, &stmt, nullptr);
+  sqlite3_bind_int(stmt, 1, roomId);
+
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *username = (const char *)sqlite3_column_text(stmt, 0);
+    const char *text = (const char *)sqlite3_column_text(stmt, 1);
+    const char *ts = (const char *)sqlite3_column_text(stmt, 2);
+    output << "[" << ts << "] " << username << ": " << text << "\n";
+  }
+
+  sqlite3_finalize(stmt);
+  return output.str();
+}
+
+int Db::getRoomId(const std::string &name) {
+  sqlite3_stmt *stmt;
+  int id = -1;
+
+  sqlite3_prepare_v2(db, "SELECT id FROM rooms WHERE name = ?;", -1, &stmt,
+                     nullptr);
+  sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    id = sqlite3_column_int(stmt, 0);
+  }
+  sqlite3_finalize(stmt);
+  return id;
+}
+
+int Db::createRoom(const std::string &name) {
+  sqlite3_stmt *stmt;
+
+  sqlite3_prepare_v2(db, "INSERT INTO rooms(name) VALUES(?);", -1, &stmt,
+                     nullptr);
+  sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+
+  if (sqlite3_step(stmt) != SQLITE_DONE) {
+    std::cerr << "Failed to insert room: " << sqlite3_errmsg(db) << "\n";
+  }
+
+  sqlite3_finalize(stmt);
+  return getRoomId(name); // return ID if needed
+}
+
+int Db::getUserId(const std::string &username) {
+  sqlite3_stmt *stmt;
+  int id = -1;
+
+  sqlite3_prepare_v2(db, "SELECT id FROM users WHERE username = ?;", -1, &stmt,
+                     nullptr);
+  sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    id = sqlite3_column_int(stmt, 0);
+  }
+  sqlite3_finalize(stmt);
+  return id;
+}
+
+int Db::createUser(const char *username, const char *password) {
+  sqlite3_stmt *stmt;
+
+  sqlite3_prepare_v2(db, "INSERT INTO users(username, password) VALUES(?, ?);",
+                     -1, &stmt, nullptr);
+  sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 2, password, -1, SQLITE_TRANSIENT);
+
+  if (sqlite3_step(stmt) != SQLITE_DONE) {
+    std::cerr << "Failed to insert user: " << sqlite3_errmsg(db) << "\n";
+  }
+
+  sqlite3_finalize(stmt);
+  return getUserId(username); // return ID if needed
+}
+
+bool Db::isUnique(const char *username) const {
+  static constexpr const char *SQL =
+      "SELECT 1 FROM users WHERE username = ? LIMIT 1;";
+
+  sqlite3_stmt *stmt = nullptr;
+  if (sqlite3_prepare_v2(db, SQL, -1, &stmt, nullptr) != SQLITE_OK) {
+    std::cerr << "isUnique-prepare: " << sqlite3_errmsg(db) << '\n';
+    return false; // on any error: “not unique”
+  }
+
+  sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+
+  int rc = sqlite3_step(stmt);
+  bool ok = (rc == SQLITE_DONE); // no row → unique
+  // SQLITE_ROW means a matching username exists
+  // anything else is an error ⇒ treat as duplicate to be safe
+
+  sqlite3_finalize(stmt);
+  return ok;
+}
+
+std::vector<std::string> Db::get_logs(int lim, int roomId) {
+  std::vector<std::string> chats;
+  chats.reserve(lim);
+
+  sqlite3_stmt *stmt;
+  sqlite3_prepare_v2(db,
+                     "SELECT * FROM ( "
+                     "  SELECT users.username, messages.text, messages.ts "
+                     "  FROM messages "
+                     "  JOIN users ON users.id = messages.user_id "
+                     "  WHERE messages.room_id = ? "
+                     "  ORDER BY messages.ts DESC "
+                     "  LIMIT ? "
+                     ") sub "
+                     "ORDER BY ts ASC;",
+                     -1, &stmt, nullptr);
+
+  // Bind room ID
+  sqlite3_bind_int(stmt, 1, roomId);
+
+  // Bind message count
+  sqlite3_bind_int(stmt, 2, lim);
+
+  std::string txt;
+  std::string name;
+  std::string full;
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    name = (const char *)sqlite3_column_text(stmt, 0);
+    txt = (const char *)sqlite3_column_text(stmt, 1);
+    // const char *ts = (const char *)sqlite3_column_text(stmt, 2);
+    full = "[" + name + "]: " + txt;
+    chats.push_back(full);
+  }
+  sqlite3_finalize(stmt);
+  return chats;
+}
+
+bool Db::verifyLogin(const char *username, const char *password) {
+  sqlite3_stmt *stmt;
+  bool valid = false;
+
+  sqlite3_prepare_v2(db,
+                     "SELECT 1 FROM users WHERE username = ? AND password = ?;",
+                     -1, &stmt, nullptr);
+  sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 2, password, -1, SQLITE_TRANSIENT);
+
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    valid = true;
+  }
+
+  sqlite3_finalize(stmt);
+  return valid;
+}
+#include "gui.h"
+#include "constants.h"
+#include "signup.h"
+
+Gui::Gui() : state{START} {}
+
+void Gui::run() {
+  InitWindow(WIDTH, HEIGHT, "Chat App");
+  SetTargetFPS(30);
+  GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
+
+  // Try loading custom font with correct path
+  // FiraCode-Regular.ttf
+  // font = LoadFontEx("../data/FiraCode-VariableFont_wght.ttf", FONTSIZE, 0,
+  // 0);
+
+  font = LoadFontEx("../data/FiraCode-Regular.ttf", FONTSIZE, 0, 0);
+  if (font.texture.id == 0) {
+    std::cout << "Custom font failed to load, using default font" << std::endl;
+    font = GetFontDefault(); // Fallback to default font
+  } else {
+    std::cout << "Custom font loaded successfully" << std::endl;
+  }
+  Db db = Db("../Db/chat.db");
+  Start start = Start(state, font);
+  Signup signup = Signup(state, db);
+  Login login = Login(state, db);
+  Menu menu = Menu(state, font, db);
+  ChatRoom room = ChatRoom(state, font, db);
+
+  // once, when you enter Start-state
+  GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, 0x33373BFF);   // #33373B – mid-grey
+  GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, 0xE0E0E0FF);   // near-white
+  GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL, 0x3C9CE8FF); // cyan ring
+  GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, 0x00A8E8FF);  // bright cyan fill
+  GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, 0xFFFFFFFF);  // white text
+
+  while (!WindowShouldClose()) {
+    BeginDrawing();
+    // ClearBackground(RAYWHITE);
+    ClearBackground({24, 26, 27, 255});
+    if (state == START) {
+      start.draw_start();
+    } else if (state == LOGIN) {
+      login.draw_login();
+    } else if (state == SIGNUP) {
+      signup.draw_signup();
+    } else if (state == MENU) {
+      menu.draw_menu(room_name);
+      if (state == ROOM) {
+        room.update(room_name, login.usrBuff);
+      }
+    } else if (state == ROOM) {
+      room.draw_room();
+    }
+
+    EndDrawing();
+  }
+
+  // Cleanup
+  if (font.texture.id != GetFontDefault().texture.id) {
+    UnloadFont(font);
+  }
+  CloseWindow();
+}
+#include "login.h"
+#include <raylib.h>
+
+Login::Login(State &state, Db &db) : state(state), db(db) {
+  titleWidth = MeasureText(title, titleFontSize);
+  titleX = (float)WIDTH / 2.0f - (float)titleWidth / 2.0f;
+
+  float boxW = 400;
+  float boxH = 40;
+  float x = WIDTH / 2.0f - boxW / 2.0f;
+  usrBox = {x, 200, boxW, boxH};
+  passBox = {x, 300, boxW, boxH};
+  sendBtn = {x + boxW - 90, 360, 90, 40};
+}
+
+void Login::draw_login() {
+  DrawText(title, titleX, titleY, titleFontSize, RED);
+  DrawText("Username:", usrBox.x, usrBox.y - 30, 20, RAYWHITE);
+  DrawText("Password:", passBox.x, passBox.y - 30, 20, RAYWHITE);
+
+  if (GuiTextBox(usrBox, usrBuff, txtLim, w_user)) {
+    w_user = true;
+    w_pass = false;
+  }
+  if (GuiTextBox(passBox, passBuff, txtLim, w_pass)) {
+    w_user = false;
+    w_pass = true;
+  }
+
+  if (IsKeyDown(KEY_TAB)) {
+    w_user = !w_user;
+    w_pass = !w_pass;
+  }
+
+  bool shouldSend = GuiButton(sendBtn, "Send") || IsKeyPressed(KEY_ENTER);
+  if (shouldSend && strlen(usrBuff) > 0 && strlen(passBuff) > 0) {
+    if (db.verifyLogin(usrBuff, passBuff)) {
+      state = MENU;
+    } else {
+      login_failed = "Login Failed";
+    }
+  }
+
+  if (!login_failed.empty()) {
+    DrawText(login_failed.c_str(), passBox.x, passBox.y + 60, 20, RED);
+  }
+}
+#include "gui.h"
+#define RAYGUI_IMPLEMENTATION // tell header to spill out the code
+#include "raygui.h"
+// login.cpp ── needs GuiButton
+
+int main() {
+  Gui gui = Gui();
+  gui.run();
+  return 0;
+}
+#include "menu.h"
+
+Menu::Menu(State &state, Font &font, Db &db)
+    : font{font}, state{state}, db{db} {
+  titleWidth = MeasureText(title, titleFontSize);
+  titleX = (float)WIDTH / 2.0f - (float)titleWidth / 2.0f;
+  titleY = 50;
+
+  rooms = db.get_rooms();
+  std::cout << "PRINTING ROOMS\n";
+  for (std::string &str : rooms) {
+    std::cout << str << "\n";
+  }
+
+  float totalHeight =
+      rooms.size() * BUTTON_HEIGHT +
+      (rooms.size() > 0 ? (rooms.size() - 1) * BUTTON_SPACING : 0);
+  float startY = (HEIGHT - totalHeight) / 2.0f;
+  float startX = (WIDTH - BUTTON_WIDTH) / 2.0f;
+
+  for (size_t i = 0; i < rooms.size(); ++i) {
+    Rectangle btn = {startX, startY + i * (BUTTON_HEIGHT + BUTTON_SPACING),
+                     (float)BUTTON_WIDTH, (float)BUTTON_HEIGHT};
+    recs.push_back(btn);
+  }
+}
+
+void Menu::draw_menu(std::string &room_name) {
+  DrawText(title, titleX, titleY, titleFontSize, RED);
+
+  for (size_t i = 0; i < rooms.size(); ++i) {
+    if (GuiButton(recs[i], rooms[i].c_str())) {
+      room_name = rooms[i];
+      state = ROOM;
+    }
+  }
+}
+#include "signup.h"
+
+Signup::Signup(State &state, Db &db) : state(state), db(db) {
+  titleWidth = MeasureText(title, titleFontSize);
+  titleX = (float)WIDTH / 2.0f - (float)titleWidth / 2.0f;
+
+  float boxW = 400;
+  float boxH = 40;
+  float x = WIDTH / 2.0f - boxW / 2.0f;
+  usrBox = {x, 200, boxW, boxH};
+  passBox = {x, 300, boxW, boxH};
+  sendBtn = {x + boxW - 90, 360, 90, 40};
+}
+
+void Signup::draw_signup() {
+  DrawText(title, titleX, titleY, titleFontSize, RED);
+  DrawText("Username:", usrBox.x, usrBox.y - 30, 20, DARKGRAY);
+  DrawText("Password:", passBox.x, passBox.y - 30, 20, DARKGRAY);
+
+  if (GuiTextBox(usrBox, usrBuff, txtLim, w_user)) {
+    w_user = true;
+    w_pass = false;
+  }
+  if (GuiTextBox(passBox, passBuff, txtLim, w_pass)) {
+    w_user = false;
+    w_pass = true;
+  }
+
+  if (IsKeyDown(KEY_TAB)) {
+    w_user = !w_user;
+    w_pass = !w_pass;
+  }
+
+  bool shouldSend = GuiButton(sendBtn, "Send") || IsKeyPressed(KEY_ENTER);
+  if (shouldSend && strlen(usrBuff) > 0 && strlen(passBuff) > 0) {
+    if (db.isUnique(usrBuff)) {
+      state = MENU;
+      db.createUser(usrBuff, passBuff);
+    } else {
+      signup_failed = "Sign Up Failed";
+    }
+  }
+
+  if (!signup_failed.empty()) {
+    DrawText(signup_failed.c_str(), passBox.x, passBox.y + 60, 20, RED);
+  }
+}
+#include "start.h"
+
+Start::Start(State &state, Font &font) : state(state), font{font} {
+  titleWidth = MeasureText(title, titleFontSize);
+  titleX = (float)WIDTH / 2.0f - (float)titleWidth / 2.0f;
+
+  float boxW = 100;
+  float boxH = 200;
+  float spacing = 100;
+  float x = WIDTH / 2.0f - boxW / 2.0f;
+  loginBox = {x, 200, boxW, boxH};
+  signupBox = {x, loginBox.y + spacing + loginBox.height, boxW, boxH};
+}
+
+/*
+void Start::draw_start() {
+  DrawText(title, titleX, titleY, titleFontSize, RED);
+  DrawText("LOGIN:", loginBox.x, loginBox.y - 30, 20, DARKGRAY);
+  DrawText("Sign Up:", signupBox.x, signupBox.y - 30, 20, DARKGRAY);
+
+  if (GuiButton(loginBox, "Login")) {
+    state = LOGIN;
+  }
+
+  else if (GuiButton(signupBox, "sign Up") || IsKeyPressed(KEY_ENTER)) {
+    state = SIGNUP;
+  }
+}
+*/
+
+// start.cpp
+
+void Start::draw_start() {
+  // one-time style init
+  // ClearBackground({24, 26, 27, 255});
+
+  DrawTextEx(font, title, {titleX, 80}, titleFontSize, 0, {0, 192, 255, 255});
+
+  const float cardW = 280, cardH = 80;
+  const float cardX = WIDTH / 2.0f - cardW / 2.0f;
+  const float cardY = 220, gapY = cardH + 36;
+
+  Rectangle loginCard{cardX, cardY, cardW, cardH};
+  Rectangle signupCard{cardX, cardY + gapY, cardW, cardH};
+
+  bool goLogin = GuiButton(loginCard, "Log in");
+  bool goSignup = GuiButton(signupCard, "Sign up") || IsKeyPressed(KEY_ENTER);
+
+  if (goLogin)
+    state = LOGIN;
+  if (goSignup)
+    state = SIGNUP;
+}

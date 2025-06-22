@@ -1,5 +1,5 @@
 #include "chatroom.h"
-#include <vector>
+#include <raylib.h>
 
 ChatRoom::ChatRoom(State &state, Font &font, Db &db)
     : font{font}, state{state}, chatBox({50, 70, 900, 500}),
@@ -70,13 +70,14 @@ bool ChatRoom::save_text(std::string &msg) {
 void ChatRoom::load_text() { chats = db.get_logs(row_lim, room_id); }
 
 void ChatRoom::draw_message_box() {
-  DrawRectangleLinesEx(chatBox, LINE_THICK, BLACK);
+  DrawRectangleLinesEx(chatBox, LINE_THICK, RAYWHITE);
   const unsigned int size = chats.size();
   unsigned int idx = size <= row_lim ? 0 : size - row_lim;
   Vector2 textPos = {chatBox.x + LINE_THICK, chatBox.y + LINE_THICK};
 
   for (; idx < size; ++idx) {
-    DrawTextEx(font, chats[idx].c_str(), textPos, FONTSIZE, TEXTSPACING, BLACK);
+    DrawTextEx(font, chats[idx].c_str(), textPos, FONTSIZE, TEXTSPACING,
+               RAYWHITE);
     textPos.y += textHeight + LINE_SPACING;
   }
 }
