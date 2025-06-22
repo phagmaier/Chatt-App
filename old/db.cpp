@@ -73,30 +73,6 @@ bool Db::insertMessage(const std::string &room, const std::string &user,
   return success;
 }
 
-std::string Db::loadMessages(const std::string &room) {
-  std::ostringstream output;
-  sqlite3_stmt *stmt;
-
-  int roomId = getRoomId(room);
-
-  sqlite3_prepare_v2(db,
-                     "SELECT users.username, messages.text, messages.ts "
-                     "FROM messages JOIN users ON users.id = messages.user_id "
-                     "WHERE messages.room_id = ? ORDER BY messages.ts ASC;",
-                     -1, &stmt, nullptr);
-  sqlite3_bind_int(stmt, 1, roomId);
-
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    const char *username = (const char *)sqlite3_column_text(stmt, 0);
-    const char *text = (const char *)sqlite3_column_text(stmt, 1);
-    const char *ts = (const char *)sqlite3_column_text(stmt, 2);
-    output << "[" << ts << "] " << username << ": " << text << "\n";
-  }
-
-  sqlite3_finalize(stmt);
-  return output.str();
-}
-
 int Db::getRoomId(const std::string &name) {
   sqlite3_stmt *stmt;
   int id = -1;
@@ -177,7 +153,7 @@ bool Db::isUnique(const char *username) const {
   return ok;
 }
 
-std::vector<std::string> Db::get_logs(int lim, int roomId) {
+std::vector<std::string> Db::get_logs(int lim, int roomId, int col_lim) {
   std::vector<std::string> chats;
   chats.reserve(lim);
 
@@ -208,7 +184,19 @@ std::vector<std::string> Db::get_logs(int lim, int roomId) {
     txt = (const char *)sqlite3_column_text(stmt, 1);
     // const char *ts = (const char *)sqlite3_column_text(stmt, 2);
     full = "[" + name + "]: " + txt;
-    chats.push_back(full);
+    if (full.size() <= col_lim) {
+      chats.push_back(full);
+    } else {
+      int idx = 0;
+      while (idx + col_lim < txt.size()) { // Fixed condition
+        std::string substr = txt.substr(idx, col_lim);
+        chats.push_back(substr);
+        idx += col_lim;
+      }
+      if (idx < txt.size()) {
+        chats.push_back(txt.substr(idx));
+      }
+    }
   }
   sqlite3_finalize(stmt);
   return chats;

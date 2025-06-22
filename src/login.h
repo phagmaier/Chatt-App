@@ -2,33 +2,33 @@
 #include "constants.h"
 #include "db.h"
 #include "raygui.h"
+#include "theme.h"
 #include <cstring>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <raylib.h>
 
-struct Login {
-  Login(State &state, Db &db);
-  void draw_login();
-  State &state;
-  Db &db;
-  Rectangle usrBox;
-  Rectangle passBox;
-  Rectangle sendBtn;
-  Rectangle usrLabel;
-  Rectangle passLabel;
-  unsigned int txtLim = 100;
-  char usrBuff[100] = {0};
-  char passBuff[100] = {0};
-  const char *title = "LOGIN";
-  float titleFontSize = 40;
-  float titleX;
-  float titleY = 50;
-  float titleWidth;
-  std::string login_failed = "";
-  bool w_user = true;
-  bool w_pass = false;
-  bool usrBoxActive = false; // Track which box is active
-  bool passBoxActive = false;
+class Login {
+public:
+  Login(State &state, Font &font, Db &db);
+
+  void draw(); // call every frame
+  inline const char *user() { return user_; }
+
+private:
+  // references to shared objects
+  State &state_;
+  Font &font_;
+  Db &db_;
+
+  // geometry
+  Rectangle userBox_;
+  Rectangle passBox_;
+  Rectangle sendBtn_;
+
+  // data
+  static constexpr int Lim = 100;
+  char user_[Lim + 1]{};
+  char pass_[Lim + 1]{};
+  bool focusUser_ = true; // which box has focus?
+  bool focusPass_ = false;
+  std::string error_;
 };

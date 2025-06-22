@@ -2,24 +2,30 @@
 #include "constants.h"
 #include "db.h"
 #include "raygui.h"
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include "theme.h"
+#include <raylib.h>
 #include <vector>
 
-struct Menu {
+class Menu {
+public:
   Menu(State &state, Font &font, Db &db);
-  void draw_menu(std::string &room_name);
-  const char *title = "Main Menu";
-  State &state;
-  Font font;
-  Db &db;
-  std::vector<std::string> rooms;
-  std::vector<Rectangle> recs;
-  int titleFontSize = 40;
-  int titleWidth;
-  float titleX;
-  float titleY = 50;
+
+  // returns true when a room was chosen and writes its name into outRoom
+  bool draw(std::string &outRoom);
+
+private:
+  void refreshRooms(); // reload DB + recompute geometry
+  void rebuildLayout();
+
+  // refs to shared objects
+  State &state_;
+  Font &font_;
+  Db &db_;
+
+  // data / layout
+  std::vector<std::string> rooms_;
+  std::vector<Rectangle> cards_;
+  int listScroll_ = 0; // for GuiListView scrolling
+
+  std::vector<const char *> roomLabels_; // <- c-strings for raygui
 };

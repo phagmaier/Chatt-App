@@ -13,8 +13,6 @@ struct Db {
   bool insertMessage(const std::string &room, const std::string &user,
                      const char *text);
 
-  std::string loadMessages(const std::string &room);
-
   int getRoomId(const std::string &name);
   int createRoom(const std::string &name);
 
@@ -24,7 +22,7 @@ struct Db {
   bool verifyLogin(const char *username, const char *password);
 
   std::vector<std::string> get_rooms();
-  std::vector<std::string> get_logs(int lim, int roomId);
+  std::vector<std::string> get_logs(int lim, int roomId, int col_lim);
   bool isUnique(const char *username) const;
 
   sqlite3 *db = nullptr;

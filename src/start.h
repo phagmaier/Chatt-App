@@ -1,22 +1,18 @@
+
 #pragma once
 #include "constants.h"
 #include "raygui.h"
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include "theme.h"
 
-struct Start {
+class Start {
+public:
   Start(State &state, Font &font);
-  void draw_start();
-  State &state;
-  Font &font;
-  Rectangle loginBox;
-  Rectangle signupBox;
-  const char *title = "Welcome to P-Chat";
-  float titleFontSize = 40;
-  float titleX;
-  float titleY = 50;
-  float titleWidth;
+  void draw();
+
+private:
+  State &state_;
+  Font &font_;
+  Rectangle loginCard_;
+  Rectangle signupCard_;
+  float textW;
 };

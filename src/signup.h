@@ -2,33 +2,29 @@
 #include "constants.h"
 #include "db.h"
 #include "raygui.h"
+#include "theme.h"
 #include <cstring>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <raylib.h>
 
-struct Signup {
-  Signup(State &state, Db &db);
-  void draw_signup();
-  State &state;
-  Db &db;
-  Rectangle usrBox;
-  Rectangle passBox;
-  Rectangle sendBtn;
-  Rectangle usrLabel;
-  Rectangle passLabel;
-  unsigned int txtLim = 100;
-  char usrBuff[100] = {0};
-  char passBuff[100] = {0};
-  const char *title = "Sign Up";
-  float titleFontSize = 40;
-  float titleX;
-  float titleY = 50;
-  float titleWidth;
-  std::string signup_failed = "";
-  bool w_user = true;
-  bool w_pass = false;
-  bool usrBoxActive = false; // Track which box is active
-  bool passBoxActive = false;
+class Signup {
+public:
+  Signup(State &state, Font &font, Db &db);
+
+  void draw();
+
+private:
+  State &state_;
+  Font &font_;
+  Db &db_;
+
+  Rectangle userBox_;
+  Rectangle passBox_;
+  Rectangle sendBtn_;
+
+  static constexpr int Lim = 100;
+  char user_[Lim + 1]{};
+  char pass_[Lim + 1]{};
+  bool focusUser_ = true;
+  bool focusPass_ = false;
+  std::string error_;
 };

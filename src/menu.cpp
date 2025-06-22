@@ -1,37 +1,77 @@
+
 #include "menu.h"
 
-Menu::Menu(State &state, Font &font, Db &db)
-    : font{font}, state{state}, db{db} {
-  titleWidth = MeasureText(title, titleFontSize);
-  titleX = (float)WIDTH / 2.0f - (float)titleWidth / 2.0f;
-  titleY = 50;
+// helper – centred heading -------------------------------------------
+static inline void drawHeading(Font f, const char *txt, int y, int size,
+                               Color c) {
+  float w = MeasureTextEx(f, txt, (float)size, 0).x;
+  DrawTextEx(f, txt, {(WIDTH - w) * 0.5f, (float)y}, (float)size, 0, c);
+}
 
-  rooms = db.get_rooms();
-  std::cout << "PRINTING ROOMS\n";
-  for (std::string &str : rooms) {
-    std::cout << str << "\n";
-  }
+/*--------------------------------------------------------------------*/
 
-  float totalHeight =
-      rooms.size() * BUTTON_HEIGHT +
-      (rooms.size() > 0 ? (rooms.size() - 1) * BUTTON_SPACING : 0);
-  float startY = (HEIGHT - totalHeight) / 2.0f;
-  float startX = (WIDTH - BUTTON_WIDTH) / 2.0f;
+Menu::Menu(State &s, Font &f, Db &db) : state_{s}, font_{f}, db_{db} {
+  refreshRooms();
+}
 
-  for (size_t i = 0; i < rooms.size(); ++i) {
-    Rectangle btn = {startX, startY + i * (BUTTON_HEIGHT + BUTTON_SPACING),
-                     (float)BUTTON_WIDTH, (float)BUTTON_HEIGHT};
-    recs.push_back(btn);
+void Menu::refreshRooms() {
+  rooms_ = db_.get_rooms();
+
+  roomLabels_.clear();
+  roomLabels_.reserve(rooms_.size());
+  for (const std::string &s : rooms_)
+    roomLabels_.push_back(s.c_str());
+
+  rebuildLayout();
+}
+
+void Menu::rebuildLayout() {
+  cards_.clear();
+
+  const float cx = WIDTH * 0.5f;
+  const float firstY = 200.0f;
+  const float gapY = Theme::CardH + Theme::Gap;
+
+  for (std::size_t i = 0; i < rooms_.size(); ++i) {
+    cards_.push_back(Theme::card(cx, firstY + i * gapY));
   }
 }
 
-void Menu::draw_menu(std::string &room_name) {
-  DrawText(title, titleX, titleY, titleFontSize, RED);
+bool Menu::draw(std::string &outRoom) {
+  // ---------- heading -------------------------------------------------
+  drawHeading(font_, "Choose a room", 80, Theme::HeadingSize, Theme::Accent);
 
-  for (size_t i = 0; i < rooms.size(); ++i) {
-    if (GuiButton(recs[i], rooms[i].c_str())) {
-      room_name = rooms[i];
-      state = ROOM;
+  // ---------- few rooms → card buttons --------------------------------
+  if (rooms_.size() <= 8) {
+    for (std::size_t i = 0; i < rooms_.size(); ++i) {
+      if (GuiButton(cards_[i], rooms_[i].c_str())) {
+        outRoom = rooms_[i];
+        state_ = ROOM;
+        return true;
+      }
     }
+    return false; // nothing picked this frame
   }
+
+  // ---------- many rooms → scrollable list view -----------------------
+  static int focus = -1;  // keyboard focus index
+  static int active = -1; // currently selected row
+
+  Rectangle bounds{WIDTH * 0.5f - 220, 180, 440, 400};
+
+  int sel = GuiListViewEx(bounds,
+                          roomLabels_.data(), // const char** items
+                          roomLabels_.size(), // item count
+                          &listScroll_,       // scroll offset
+                          &focus,             // keyboard focus
+                          &active);           // active (visual)
+
+  if (sel != -1) // user clicked/enter
+  {
+    outRoom = rooms_[sel];
+    state_ = ROOM;
+    return true;
+  }
+
+  return false; // no selection yet
 }

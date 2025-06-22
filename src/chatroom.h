@@ -1,44 +1,51 @@
 #pragma once
 #include "constants.h"
-#include "raygui.h"
-// #include "raylib.h"
 #include "db.h"
+#include "raygui.h"
+#include "theme.h"
 #include <cstring>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <raylib.h>
 #include <vector>
 
-struct ChatRoom {
+class ChatRoom {
+public:
   ChatRoom(State &state, Font &font, Db &db);
-  ~ChatRoom();
-  int titleSize = 35;
-  int titleWidth = 0;
-  int inMax = 10000;
-  std::string name;
-  State &state;
-  Font &font;
-  std::vector<std::string> chats;
-  char *inBuff;
-  Rectangle chatBox;
-  Rectangle inputBox;
-  Rectangle sendBtn;
-  Rectangle backBtn;
-  float charWidth;
-  float textHeight;
-  int row_lim;
-  int col_lim;
-  int room_id;
-  Db &db;
-  std::string usr;
 
-  void update(std::string &new_name, const char *new_usr);
-  void load_text();
-  void draw_input();
-  void draw_message_box();
-  void append_msg(std::string &str);
-  void draw_room();
-  bool save_text(std::string &msg);
-  void resize_chats();
+  // called after MENU chooses a room; reloads history
+  void open(const std::string &roomName, const char *user);
+
+  // call every frame
+  void draw();
+  // inline const char *user() { return user_; }
+
+private:
+  // helpers
+  void drawHistory() const;
+  void pushWrapped(const std::string &line);
+  float textWidth(const char *txt) const;
+
+  // refs
+  State &state_;
+  Font &font_;
+  Db &db_;
+
+  // geometry
+  Rectangle historyBox_;
+  Rectangle inputBox_;
+  Rectangle sendBtn_;
+  Rectangle backBtn_;
+
+  // state
+  std::vector<std::string> history_;
+  std::string room_;
+  const char *user_ = nullptr;
+  int roomId_ = -1;
+
+  // typing buffer
+  static constexpr int InLim = 256;
+  char input_[InLim + 1]{};
+
+  // wrapping
+  int colLim_ = 0; // chars per line inside historyBox_
+  int rowLim_ = 0; // visible rows
 };
