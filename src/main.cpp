@@ -4,7 +4,6 @@
 // login.cpp ── needs GuiButton
 
 int main() {
-  Gui gui = Gui();
-  gui.run();
+  runGui();
   return 0;
 }

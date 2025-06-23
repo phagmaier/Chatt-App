@@ -1,15 +1,7 @@
 #include "login.h"
 
-// -------------- helpers ------------------------------------------------
-static inline void drawHeading(Font f, const char *txt, int y, int size,
-                               Color c) {
-  float w = MeasureTextEx(f, txt, (float)size, 0).x;
-  DrawTextEx(f, txt, {(WIDTH - w) * 0.5f, (float)y}, (float)size, 0, c);
-}
-
-/*----------------------------------------------------------------------*/
-
-Login::Login(State &s, Font &f, Db &db) : state_{s}, font_{f}, db_{db} {
+Login::Login(State &state, Font &font_header, Font &font_text, Db &db)
+    : state_{state}, font_header{font_header}, font_text{font_text}, db_{db} {
   const float cx = WIDTH * 0.5f;
   const float topY = 220.0f;
 
@@ -17,21 +9,23 @@ Login::Login(State &s, Font &f, Db &db) : state_{s}, font_{f}, db_{db} {
   userBox_ = {cx - boxW / 2, topY, boxW, boxH};
   passBox_ = {cx - boxW / 2, topY + 80, boxW, boxH};
   sendBtn_ = {cx + boxW / 2 - 120, topY + 80 + 60, 120, 46};
+  backBtn_ = {userBox_.x, sendBtn_.y, sendBtn_.width, sendBtn_.height};
+  textW =
+      MeasureTextEx(font_header, "LOGIN", Theme::HeadingSize, Theme::spacing).x;
 }
 
-void Login::draw() {
-  // ---------------- heading -----------------------------------------
-  drawHeading(font_, "Login", 80, Theme::HeadingSize, Theme::Accent);
+void Login::draw(std::string &usrName) {
 
-  // ---------------- labels ------------------------------------------
+  DrawTextEx(font_header, "LOGIN", {WIDTH / 2.0f - textW / 2.0f, 80.f},
+             Theme::HeadingSize, Theme::spacing, Theme::Accent);
+
   const int labelSize = 20;
-  DrawTextEx(font_, "Username", {userBox_.x, userBox_.y - labelSize - 8},
-             (float)labelSize, 0, Theme::Fg);
+  DrawTextEx(font_text, "Username", {userBox_.x, userBox_.y - labelSize - 8},
+             Theme::textSize, Theme::spacing, Theme::Fg);
 
-  DrawTextEx(font_, "Password", {passBox_.x, passBox_.y - labelSize - 8},
-             (float)labelSize, 0, Theme::Fg);
+  DrawTextEx(font_text, "Password", {passBox_.x, passBox_.y - labelSize - 8},
+             Theme::textSize, Theme::spacing, Theme::Fg);
 
-  // ---------------- text boxes --------------------------------------
   if (GuiTextBox(userBox_, user_, Lim, focusUser_)) {
     focusUser_ = true;
     focusPass_ = false;
@@ -42,25 +36,28 @@ void Login::draw() {
     focusPass_ = true;
   }
 
-  if (IsKeyPressed(KEY_TAB)) { // swap focus
+  if (IsKeyPressed(KEY_TAB)) {
     focusUser_ = !focusUser_;
     focusPass_ = !focusPass_;
   }
 
-  // ---------------- submit ------------------------------------------
   bool send = GuiButton(sendBtn_, "Send") || IsKeyPressed(KEY_ENTER);
+  if (GuiButton(backBtn_, "Back")) {
+    state_ = START;
+  }
 
-  if (send && user_[0] && pass_[0]) {
+  else if (send && user_[0] && pass_[0]) {
     if (db_.verifyLogin(user_, pass_)) {
       state_ = MENU;
-      std::memset(pass_, 0, sizeof(pass_)); // hygiene
+      usrName = user_;
+      std::memset(pass_, 0, sizeof(pass_));
     } else {
       error_ = "Login failed";
     }
   }
 
   if (!error_.empty()) {
-    DrawTextEx(font_, error_.c_str(), {passBox_.x, passBox_.y + 70}, 20, 0,
-               RED);
+    DrawTextEx(font_text, error_.c_str(), {passBox_.x, passBox_.y + 70},
+               Theme::textSize, 0, RED);
   }
 }

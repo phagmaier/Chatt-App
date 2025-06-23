@@ -1,4 +1,3 @@
-
 #pragma once
 #include "constants.h"
 #include "theme.h"
@@ -10,22 +9,4 @@
 #include "signup.h"
 #include "start.h"
 
-struct Gui {
-  Gui();
-  ~Gui();
-  void run(); // main loop
-
-private:
-  // shared objects live as members so they out-live run()
-  Font font_text;
-  Font font_heading;
-  State state_ = START;
-  Db db_;
-  Start start_;
-  Login login_;
-  Signup signup_;
-  Menu menu_;
-  ChatRoom room_;
-
-  std::string currentRoom_;
-};
+void runGui();

@@ -19,7 +19,7 @@ private:
 
   // refs to shared objects
   State &state_;
-  Font &font_;
+  Font &font;
   Db &db_;
 
   // data / layout
@@ -28,4 +28,7 @@ private:
   int listScroll_ = 0; // for GuiListView scrolling
 
   std::vector<const char *> roomLabels_; // <- c-strings for raygui
+  float textW;
+  Rectangle bounds;
+  Rectangle backBtn_;
 };

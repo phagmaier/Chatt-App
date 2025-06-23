@@ -1,28 +1,17 @@
 #include "chatroom.h"
 
-/*──────────────── helpers ────────────────────────────────────────────*/
-static inline void drawHeading(Font f, const char *txt, int y, int size,
-                               Color c) {
-  float w = MeasureTextEx(f, txt, (float)size, 0).x;
-  DrawTextEx(f, txt, {(WIDTH - w) * 0.5f, (float)y}, (float)size, 0, c);
-}
-/*──────────────── ctor ───────────────────────────────────────────────*/
-
-ChatRoom::ChatRoom(State &s, Font &f, Db &d) : state_{s}, font_{f}, db_{d} {
-  // layout ratios
+ChatRoom::ChatRoom(State &s, Font &font_heading, Font &font_text, Db &d)
+    : state_{s}, font_heading{font_heading}, font_text{font_text}, db_{d} {
   constexpr float pad = 32.0f;
   historyBox_ = {pad, 120, WIDTH - 2 * pad, HEIGHT - 300};
   inputBox_ = {pad, HEIGHT - 150, WIDTH - 220 - 2 * pad, 48};
   sendBtn_ = {inputBox_.x + inputBox_.width + 12, inputBox_.y, 120, 48};
   backBtn_ = {pad, 60, 100, 32};
 
-  // pre-compute wrap limits
-  float cw = MeasureTextEx(font_, "A", FONTSIZE, 0).x;
+  float cw = MeasureTextEx(font_heading, "A", FONTSIZE, 0).x;
   colLim_ = int((historyBox_.width - Theme::PAD) / cw);
   rowLim_ = int(historyBox_.height / (FONTSIZE + Theme::PAD / 2));
 }
-
-/*──────────────── public ─────────────────────────────────────────────*/
 
 void ChatRoom::open(const std::string &roomName, const char *user) {
   room_ = roomName;
@@ -30,24 +19,26 @@ void ChatRoom::open(const std::string &roomName, const char *user) {
   roomId_ = db_.getRoomId(roomName);
   history_ = db_.get_logs(rowLim_ * 2, roomId_);
   memset(input_, 0, sizeof(input_));
+
+  textW = MeasureTextEx(font_heading, roomName.c_str(), Theme::HeadingSize,
+                        Theme::spacing)
+              .x;
 }
 
-/*──────────────── frame ──────────────────────────────────────────────*/
-
 void ChatRoom::draw() {
-  // heading + back
-  drawHeading(font_, room_.c_str(), 40, Theme::HeadingSize, Theme::Accent);
+  DrawTextEx(font_heading, room_.c_str(), {WIDTH / 2.0f - textW / 2.0f, 80.f},
+             Theme::HeadingSize, Theme::spacing, Theme::Accent);
+
   if (GuiButton(backBtn_, "Back")) {
     state_ = MENU;
     return;
   }
 
-  // scrolling history
   drawHistory();
+  bool send = GuiButton(sendBtn_, "Send");
 
-  // input
   if (GuiTextBox(inputBox_, input_, InLim, true) &&
-      (IsKeyPressed(KEY_ENTER) || GuiButton(sendBtn_, "Send"))) {
+      (IsKeyPressed(KEY_ENTER) || send)) {
     if (input_[0]) {
       std::string line = std::string("[") + user_ + "]: " + input_;
       pushWrapped(line);
@@ -56,8 +47,6 @@ void ChatRoom::draw() {
     }
   }
 }
-
-/*──────────────── impl details ───────────────────────────────────────*/
 
 void ChatRoom::drawHistory() const {
   DrawRectangleLinesEx(historyBox_, 2, Theme::Accent);
@@ -72,7 +61,8 @@ void ChatRoom::drawHistory() const {
   for (int i = start; i < (int)history_.size(); ++i) {
     float fade = 1.0f - 0.4f * (history_.size() - 1 - i) / rowLim_;
     Color c = Fade(Theme::Fg, fade);
-    DrawTextEx(font_, history_[i].c_str(), pos, FONTSIZE, 0, c);
+    DrawTextEx(font_text, history_[i].c_str(), pos, Theme::textSize,
+               Theme::spacing, c);
     pos.y += FONTSIZE + Theme::PAD / 2;
   }
 }

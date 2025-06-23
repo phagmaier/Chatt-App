@@ -1,17 +1,13 @@
 
 #include "menu.h"
 
-// helper – centred heading -------------------------------------------
-static inline void drawHeading(Font f, const char *txt, int y, int size,
-                               Color c) {
-  float w = MeasureTextEx(f, txt, (float)size, 0).x;
-  DrawTextEx(f, txt, {(WIDTH - w) * 0.5f, (float)y}, (float)size, 0, c);
-}
-
-/*--------------------------------------------------------------------*/
-
-Menu::Menu(State &s, Font &f, Db &db) : state_{s}, font_{f}, db_{db} {
+Menu::Menu(State &state, Font &font, Db &db)
+    : state_{state}, font{font}, db_{db} {
   refreshRooms();
+  bounds = {WIDTH * 0.5f - 220, 180, 440, 400};
+  textW = MeasureTextEx(font, "MENU", Theme::HeadingSize, Theme::spacing).x;
+  constexpr float pad = 32.0f;
+  backBtn_ = {pad, 60, 100, 32};
 }
 
 void Menu::refreshRooms() {
@@ -38,10 +34,12 @@ void Menu::rebuildLayout() {
 }
 
 bool Menu::draw(std::string &outRoom) {
-  // ---------- heading -------------------------------------------------
-  drawHeading(font_, "Choose a room", 80, Theme::HeadingSize, Theme::Accent);
+  DrawTextEx(font, "MENU", {WIDTH / 2.0f - textW / 2.0f, 80.f},
+             Theme::HeadingSize, Theme::spacing, Theme::Accent);
+  if (GuiButton(backBtn_, "Back")) {
+    state_ = START;
+  }
 
-  // ---------- few rooms → card buttons --------------------------------
   if (rooms_.size() <= 8) {
     for (std::size_t i = 0; i < rooms_.size(); ++i) {
       if (GuiButton(cards_[i], rooms_[i].c_str())) {
@@ -50,28 +48,19 @@ bool Menu::draw(std::string &outRoom) {
         return true;
       }
     }
-    return false; // nothing picked this frame
+    return false;
   }
 
-  // ---------- many rooms → scrollable list view -----------------------
-  static int focus = -1;  // keyboard focus index
-  static int active = -1; // currently selected row
+  static int focus = -1;
+  static int active = -1;
 
-  Rectangle bounds{WIDTH * 0.5f - 220, 180, 440, 400};
-
-  int sel = GuiListViewEx(bounds,
-                          roomLabels_.data(), // const char** items
-                          roomLabels_.size(), // item count
-                          &listScroll_,       // scroll offset
-                          &focus,             // keyboard focus
-                          &active);           // active (visual)
-
-  if (sel != -1) // user clicked/enter
-  {
+  int sel = GuiListViewEx(bounds, roomLabels_.data(), roomLabels_.size(),
+                          &listScroll_, &focus, &active);
+  if (sel != -1) {
     outRoom = rooms_[sel];
     state_ = ROOM;
     return true;
   }
 
-  return false; // no selection yet
+  return false;
 }

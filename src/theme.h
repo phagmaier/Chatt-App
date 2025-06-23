@@ -15,6 +15,7 @@ constexpr float CardW = 300;
 constexpr float CardH = 90;
 constexpr float Gap = 32; // vertical gap between cards
 constexpr int body = 32;
+constexpr int spacing = 0;
 
 inline Rectangle card(float cx, float y) {
   return {cx - CardW * 0.5f, y, CardW, CardH};

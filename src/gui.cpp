@@ -1,70 +1,61 @@
 #include "gui.h"
-#include "theme.h"
 
-Gui::Gui()
-    : db_("../Db/chat.db"),
-
-      font_text(
-          LoadFontEx("../data/FiraCode-Regular.ttf", Theme::textSize, 0, 0)),
-      font_heading(
-          LoadFontEx("../data/FiraCode-Regular.ttf", Theme::HeadingSize, 0, 0)),
-
-      start_(state_, font_heading), login_(state_, font_heading, db_),
-      signup_(state_, font_heading, db_), menu_(state_, font_heading, db_),
-      room_(state_, font_heading, db_) {
-  if (font_heading.texture.id == 0)
-    font_heading = GetFontDefault();
+void runGui() {
 
   InitWindow(WIDTH, HEIGHT, "Chat App");
-  SetTargetFPS(60);
+  SetTargetFPS(30);
+  Font font_text = LoadFontEx("../Font/RobotoMono-VariableFont_wght.ttf",
+                              Theme::textSize, 0, 0);
+  ;
+  Font font_heading = LoadFontEx("../Font/RobotoMono-VariableFont_wght.ttf",
+                                 Theme::HeadingSize, 0, 0);
 
-  /* ---------- global theme (one-time) ----------------------------- */
-  // GuiLoadStyleDefault();
+  State state = START;
+  std::string currentRoom_;
+  std::string usrName;
+
+  Db db = Db("../Db/chat.db");
+  Start start = Start(state, font_heading);
+  Signup signup = Signup(state, font_heading, font_text, db);
+  Login login = Login(state, font_heading, font_text, db);
+  Menu menu = Menu(state, font_heading, db);
+  std::string room_name;
+  ChatRoom room = ChatRoom(state, font_heading, font_text, db);
+
   GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
-  GuiSetStyle(DEFAULT, TEXT_SPACING, 2);
-
-  GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, ColorToInt(Theme::Fg));
-  GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, 0x2E3236FF);
-  GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, ColorToInt(Theme::Accent));
-  GuiSetStyle(BUTTON, BORDER_WIDTH, 2);
-  GuiSetStyle(TEXTBOX, BORDER_COLOR_FOCUSED, ColorToInt(Theme::Accent));
-  SetTextureFilter(font_heading.texture,
-                   TEXTURE_FILTER_BILINEAR); // smooth downsizing
+  GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, 0x33373BFF);
+  GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, 0xE0E0E0FF);
+  GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL, 0x3C9CE8FF);
+  GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, 0x00A8E8FF);
+  GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, 0xFFFFFFFF);
   GuiSetFont(font_text);
-}
 
-Gui::~Gui() {
-  if (font_heading.texture.id != GetFontDefault().texture.id)
-    UnloadFont(font_heading);
-  CloseWindow();
-}
-
-void Gui::run() {
   while (!WindowShouldClose()) {
     BeginDrawing();
-    ClearBackground(Theme::Bg);
-
-    switch (state_) {
-    case START:
-      start_.draw();
-      break;
-    case LOGIN:
-      login_.draw();
-      break;
-    case SIGNUP:
-      signup_.draw();
-      break;
-    case MENU:
-      if (menu_.draw(currentRoom_))
-        room_.open(currentRoom_, login_.user());
-      break;
-    case ROOM:
-      room_.draw();
-      break;
-    default:
-      break;
+    ClearBackground({24, 26, 27, 255});
+    if (state == START) {
+      start.draw();
+    } else if (state == LOGIN) {
+      login.draw(usrName);
+    } else if (state == SIGNUP) {
+      signup.draw(usrName);
+    } else if (state == MENU) {
+      menu.draw(room_name);
+      if (state == ROOM) {
+        room.open(room_name, usrName.c_str());
+      }
+    } else if (state == ROOM) {
+      room.draw();
     }
 
     EndDrawing();
   }
+
+  if (font_text.texture.id != GetFontDefault().texture.id) {
+    UnloadFont(font_text);
+  }
+  if (font_heading.texture.id != GetFontDefault().texture.id) {
+    UnloadFont(font_heading);
+  }
+  CloseWindow();
 }

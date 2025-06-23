@@ -8,27 +8,25 @@
 
 class Login {
 public:
-  Login(State &state, Font &font, Db &db);
-
-  void draw(); // call every frame
-  inline const char *user() { return user_; }
+  Login(State &state, Font &font_header, Font &font_text, Db &db);
+  void draw(std::string &usrName);
 
 private:
-  // references to shared objects
   State &state_;
-  Font &font_;
+  Font &font_header;
+  Font &font_text;
   Db &db_;
 
-  // geometry
   Rectangle userBox_;
   Rectangle passBox_;
   Rectangle sendBtn_;
+  Rectangle backBtn_;
+  float textW;
 
-  // data
   static constexpr int Lim = 100;
   char user_[Lim + 1]{};
   char pass_[Lim + 1]{};
-  bool focusUser_ = true; // which box has focus?
+  bool focusUser_ = true;
   bool focusPass_ = false;
   std::string error_;
 };

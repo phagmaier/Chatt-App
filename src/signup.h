@@ -8,18 +8,20 @@
 
 class Signup {
 public:
-  Signup(State &state, Font &font, Db &db);
+  Signup(State &state, Font &font_header, Font &font_text, Db &db);
 
-  void draw();
+  void draw(std::string &usrName);
 
 private:
   State &state_;
-  Font &font_;
+  Font &font_header;
+  Font &font_text;
   Db &db_;
 
   Rectangle userBox_;
   Rectangle passBox_;
   Rectangle sendBtn_;
+  Rectangle backBtn_;
 
   static constexpr int Lim = 100;
   char user_[Lim + 1]{};
@@ -27,4 +29,5 @@ private:
   bool focusUser_ = true;
   bool focusPass_ = false;
   std::string error_;
+  float textW;
 };
