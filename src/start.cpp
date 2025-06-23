@@ -17,6 +17,7 @@ void Start::draw() {
 
   DrawTextEx(font_, "WELCOME TO P-CHAT", {WIDTH / 2.0f - textW / 2.0f, 80.f},
              Theme::HeadingSize, Theme::spacing, Theme::Accent);
+
   bool goLogin = GuiButton(loginCard_, "Login");
   bool goSignup = GuiButton(signupCard_, "Signup") || IsKeyPressed(KEY_ENTER);
 

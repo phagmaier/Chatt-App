@@ -1,4 +1,5 @@
 #include "chatroom.h"
+#include "theme.h"
 
 ChatRoom::ChatRoom(State &s, Font &font_heading, Font &font_text, Db &d)
     : state_{s}, font_heading{font_heading}, font_text{font_text}, db_{d} {
@@ -8,9 +9,9 @@ ChatRoom::ChatRoom(State &s, Font &font_heading, Font &font_text, Db &d)
   sendBtn_ = {inputBox_.x + inputBox_.width + 12, inputBox_.y, 120, 48};
   backBtn_ = {pad, 60, 100, 32};
 
-  float cw = MeasureTextEx(font_heading, "A", FONTSIZE, 0).x;
+  float cw = MeasureTextEx(font_heading, "A", Theme::HeadingSize, 0).x;
   colLim_ = int((historyBox_.width - Theme::PAD) / cw);
-  rowLim_ = int(historyBox_.height / (FONTSIZE + Theme::PAD / 2));
+  rowLim_ = int(historyBox_.height / (Theme::HeadingSize + Theme::PAD / 2));
 }
 
 void ChatRoom::open(const std::string &roomName, const char *user) {
@@ -63,7 +64,7 @@ void ChatRoom::drawHistory() const {
     Color c = Fade(Theme::Fg, fade);
     DrawTextEx(font_text, history_[i].c_str(), pos, Theme::textSize,
                Theme::spacing, c);
-    pos.y += FONTSIZE + Theme::PAD / 2;
+    pos.y += Theme::HeadingSize + Theme::PAD / 2;
   }
 }
 

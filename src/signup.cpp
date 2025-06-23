@@ -61,7 +61,7 @@ void Signup::draw(std::string &usrName) {
   }
 
   if (!error_.empty()) {
-    DrawTextEx(font_header, error_.c_str(), {passBox_.x, passBox_.y + 70},
-               Theme::body, 0, RED);
+    DrawTextEx(font_text, error_.c_str(), {passBox_.x, passBox_.y + 150},
+               Theme::textSize, 0, RED);
   }
 }

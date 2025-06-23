@@ -57,7 +57,7 @@ void Login::draw(std::string &usrName) {
   }
 
   if (!error_.empty()) {
-    DrawTextEx(font_text, error_.c_str(), {passBox_.x, passBox_.y + 70},
+    DrawTextEx(font_text, error_.c_str(), {passBox_.x, passBox_.y + 150},
                Theme::textSize, 0, RED);
   }
 }
