@@ -9,9 +9,10 @@ ChatRoom::ChatRoom(State &s, Font &font_heading, Font &font_text, Db &d)
   sendBtn_ = {inputBox_.x + inputBox_.width + 12, inputBox_.y, 120, 48};
   backBtn_ = {pad, 60, 100, 32};
 
-  float cw = MeasureTextEx(font_heading, "A", Theme::HeadingSize, 0).x;
-  colLim_ = int((historyBox_.width - Theme::PAD) / cw);
-  rowLim_ = int(historyBox_.height / (Theme::HeadingSize + Theme::PAD / 2));
+  // float cw = MeasureTextEx(font_heading, "A", Theme::HeadingSize, 0).x;
+  float text_w = MeasureTextEx(font_text, "A", Theme::textSize, 0).x;
+  colLim_ = int((historyBox_.width - Theme::PAD) / text_w);
+  rowLim_ = int(historyBox_.height / (Theme::textSize + Theme::PAD / 2));
 }
 
 void ChatRoom::open(const std::string &roomName, const char *user) {

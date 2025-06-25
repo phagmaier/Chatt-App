@@ -1,8 +1,0 @@
-WHAT YOU WILL NEED TO CHANGE
-1. when you get things like a message need to store the id so then 
-you will periodically make queries being like "hey did i get any new message?"
-which means sending your chat id and the room name and getting all chats in that room with an id greater 
-than that id
-
-2. Cannot write your your messages directly cause what if another message came in that time? 
-Will send it to the server and then get the message back 
